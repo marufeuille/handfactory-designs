@@ -72,3 +72,9 @@ Open the viewer: the new design appears in the dropdown, its parts
 switch, and its dimension labels show. If it does not appear, check that
 `designs.json` is still valid JSON and that the pushed manifest is the
 one being served (raw/CDN caches can lag a few minutes).
+
+Note: if the viewer (or a viewer instance) reads the manifest through the
+jsDelivr CDN, its `@main` cache can lag for hours. Purge it after pushing
+a manifest change:
+`https://purge.jsdelivr.net/gh/<owner>/<repo>@main/designs.json`
+(raw.githubusercontent.com refreshes within a few minutes on its own.)
