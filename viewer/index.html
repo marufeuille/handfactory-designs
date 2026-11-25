@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>handfactory designs viewer</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font-family: sans-serif; background:#1c2127; color:#e8edf2; }
+  header { padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  select, button { font-size:14px; padding:7px 10px; border-radius:8px; border:1px solid #4a5560; background:#2a3138; color:#e8edf2; }
+  button.on { background:#b45f22; border-color:#b45f22; color:#fff; }
+  #cv { width:100%; height:calc(100vh - 150px); display:block; touch-action:none; background:#232a31; }
+  #hint { padding:6px 12px; font-size:12px; color:#9aa7b1; }
+  #badge { font-size:12px; padding:4px 10px; border-radius:99px; border:1px solid #b45f22; color:#f0a35e; }
+</style>
+</head>
+<body>
+<header>
+  <label>デザイン <select id="design"></select></label>
+  <span id="parts"></span>
+  <button id="dims" class="on">寸法</button>
+  <button id="reset">リセット</button>
+  <span id="badge">読み込み中…</span>
+</header>
+<canvas id="cv"></canvas>
+<div id="hint">ドラッグ: 回転 / ピンチ・ホイール: 拡大縮小（平行投影）</div>
+<script>
+'use strict';
+const MANIFEST_URL = '../designs.json';
+let designs = [], curDesign = null, curPart = null, cache = {};
+let az = -0.9, el = 0.55, zoom = 1, showDims = true, D = null;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const badge = document.getElementById('badge');
+
+function parseSTL(buf) {
+  const dv = new DataView(buf);
+  let soup = null;
+  if (buf.byteLength >= 84) {
+    const n = dv.getUint32(80, true);
+    if (84 + n * 50 === buf.byteLength) {
+      soup = new Float32Array(n * 9);
+      for (let i = 0; i < n; i++) {
+        const o = 84 + i * 50 + 12;
+        for (let k = 0; k < 9; k++) soup[i * 9 + k] = dv.getFloat32(o + k * 4, true);
+      }
+    }
+  }
+  if (!soup) {
+    const text = new TextDecoder().decode(buf);
+    const vals = [];
+    const re = /vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)/g;
+    let m; while ((m = re.exec(text)) !== null) vals.push(+m[1], +m[2], +m[3]);
+    soup = new Float32Array(vals);
+  }
+  const NF = soup.length / 9;
+  const F = new Uint32Array(NF * 3);
+  for (let i = 0; i < NF * 3; i++) F[i] = i;
+  return build(soup, F);
+}
+function build(V, F) {
+  const NF = F.length / 3;
+  const cent = new Float32Array(F.length), nor = new Float32Array(F.length);
+  for (let i = 0; i < NF; i++) {
+    const a = F[3*i]*3, b = F[3*i+1]*3, c = F[3*i+2]*3;
+    const ax=V[a],ay=V[a+1],az2=V[a+2],bx=V[b],by=V[b+1],bz=V[b+2],cx=V[c],cy=V[c+1],cz=V[c+2];
+    cent[3*i]=(ax+bx+cx)/3; cent[3*i+1]=(ay+by+cy)/3; cent[3*i+2]=(az2+bz+cz)/3;
+    const ux=bx-ax,uy=by-ay,uz=bz-az2,vx=cx-ax,vy=cy-ay,vz=cz-az2;
+    let nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+    const l=Math.hypot(nx,ny,nz)||1; nor[3*i]=nx/l; nor[3*i+1]=ny/l; nor[3*i+2]=nz/l;
+  }
+  let mn=[1e9,1e9,1e9], mx=[-1e9,-1e9,-1e9];
+  for (let i=0;i<V.length;i+=3) for (let k=0;k<3;k++){ mn[k]=Math.min(mn[k],V[i+k]); mx[k]=Math.max(mx[k],V[i+k]); }
+  return {V,F,NF,cent,nor,TC:[(mn[0]+mx[0])/2,(mn[1]+mx[1])/2,(mn[2]+mx[2])/2],SIZE:Math.hypot(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2])};
+}
+function render() {
+  if (!D) return;
+  const w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(w*dpr)) { cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const ca=Math.cos(az), sa=Math.sin(az), ce=Math.cos(el), se=Math.sin(el);
+  const rx=sa, ry=-ca, rz=0, ux=-se*ca, uy=-se*sa, uz=ce, fx=ce*ca, fy=ce*sa, fz=se;
+  const ll=Math.hypot(-0.35,-0.55,0.75), lx=-0.35/ll, ly=-0.55/ll, lz=0.75/ll;
+  const sc=(Math.min(w,h)*0.44)/(D.SIZE/2)*zoom, cxp=w/2, cyp=h/2;
+  const {V,F,NF,cent,nor,TC} = D;
+  const order=new Array(NF), pz=new Float32Array(NF);
+  for (let i=0;i<NF;i++){ const dx=cent[3*i]-TC[0], dy=cent[3*i+1]-TC[1], dz=cent[3*i+2]-TC[2]; pz[i]=dx*fx+dy*fy+dz*fz; order[i]=i; }
+  order.sort((p,q)=>pz[p]-pz[q]);
+  for (const i of order) {
+    const pts=[];
+    for (let k=0;k<3;k++){
+      const vi=F[3*i+k]*3, dx=V[vi]-TC[0], dy=V[vi+1]-TC[1], dz=V[vi+2]-TC[2];
+      pts.push([cxp+(dx*rx+dy*ry+dz*rz)*sc, cyp-(dx*ux+dy*uy+dz*uz)*sc]);
+    }
+    const nx=nor[3*i],ny=nor[3*i+1],nz=nor[3*i+2];
+    const d=Math.max(0,(nx*rx+ny*ry+nz*rz)*lx+(nx*ux+ny*uy+nz*uz)*ly+(nx*fx+ny*fy+nz*fz)*lz);
+    const sh=0.42+0.58*d;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0],pts[0][1]); ctx.lineTo(pts[1][0],pts[1][1]); ctx.lineTo(pts[2][0],pts[2][1]);
+    ctx.closePath();
+    ctx.fillStyle=`rgb(${Math.round(148*sh+30)},${Math.round(168*sh+30)},${Math.round(190*sh+30)})`;
+    ctx.fill();
+  }
+  if (showDims && curDesign.dims && curDesign.dims[curPart]) {
+    const P=(x,y,z)=>{ const dx=x-TC[0], dy=y-TC[1], dz=z-TC[2]; return [cxp+(dx*rx+dy*ry+dz*rz)*sc, cyp-(dx*ux+dy*uy+dz*uz)*sc]; };
+    const ACC='#7db4ff';
+    ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const label=(x,y,t)=>{ const tw=ctx.measureText(t).width+10; ctx.fillStyle='rgba(10,14,20,0.72)'; ctx.beginPath(); ctx.roundRect(x-tw/2,y-9,tw,18,5); ctx.fill(); ctx.fillStyle='#dceaff'; ctx.fillText(t,x,y+0.5); };
+    const dimLine=(a3,b3,off,t)=>{ const a=P(...a3), b=P(...b3), A=[a[0]+off[0],a[1]+off[1]], B=[b[0]+off[0],b[1]+off[1]];
+      ctx.strokeStyle=ACC; ctx.globalAlpha=0.55; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(A[0],A[1]); ctx.moveTo(b[0],b[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+      ctx.globalAlpha=1; ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+      const dx=B[0]-A[0], dy=B[1]-A[1], len=Math.hypot(dx,dy)||1, px=-dy/len*5, py=dx/len*5;
+      ctx.beginPath(); ctx.moveTo(A[0]-px,A[1]-py); ctx.lineTo(A[0]+px,A[1]+py); ctx.moveTo(B[0]-px,B[1]-py); ctx.lineTo(B[0]+px,B[1]+py); ctx.stroke();
+      label((A[0]+B[0])/2,(A[1]+B[1])/2,t); };
+    const leader=(p3,dx,dy,t)=>{ const p=P(...p3), q=[p[0]+dx,p[1]+dy];
+      ctx.strokeStyle=ACC; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke();
+      ctx.fillStyle=ACC; ctx.beginPath(); ctx.arc(p[0],p[1],2.2,0,7); ctx.fill(); label(q[0],q[1],t); };
+    const ds = curDesign.dims[curPart];
+    for (const [a,b,o,t] of (ds.lines||[])) dimLine(a,b,o,t);
+    for (const [p,dx,dy,t] of (ds.leaders||[])) leader(p,dx,dy,t);
+  }
+}
+async function loadPart() {
+  const part = curDesign.parts.find(p => p.id === curPart);
+  const url = '../' + curDesign.dir + '/' + part.file;
+  if (!cache[url]) cache[url] = parseSTL(await (await fetch(url)).arrayBuffer());
+  D = cache[url];
+  render();
+}
+function refreshParts() {
+  const wrap = document.getElementById('parts');
+  wrap.innerHTML = '';
+  for (const p of curDesign.parts) {
+    const b = document.createElement('button');
+    b.textContent = p.label;
+    if (p.id === curPart) b.className = 'on';
+    b.onclick = () => { curPart = p.id; refreshParts(); loadPart(); };
+    wrap.appendChild(b);
+  }
+}
+async function init() {
+  try {
+    const m = await (await fetch(MANIFEST_URL)).json();
+    designs = m.designs;
+    badge.textContent = 'GitHub連携';
+  } catch (e) {
+    badge.textContent = 'designs.json を読み込めませんでした（ローカルサーバー経由で開いてください）';
+    return;
+  }
+  const sel = document.getElementById('design');
+  for (const d of designs) {
+    const o = document.createElement('option');
+    o.value = d.id; o.textContent = d.name;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => { curDesign = designs.find(d => d.id === sel.value); curPart = curDesign.parts[0].id; refreshParts(); loadPart(); };
+  curDesign = designs[0];
+  curPart = curDesign.parts[0].id;
+  refreshParts();
+  loadPart();
+}
+let drag=null, pinch=0;
+cv.addEventListener('pointerdown', e=>{ cv.setPointerCapture(e.pointerId); drag={x:e.clientX,y:e.clientY,id:e.pointerId}; });
+cv.addEventListener('pointermove', e=>{ if(drag&&e.pointerId===drag.id){ az+=(e.clientX-drag.x)*0.008; el=Math.max(-1.4,Math.min(1.5,el+(e.clientY-drag.y)*0.008)); drag={x:e.clientX,y:e.clientY,id:e.pointerId}; render(); }});
+cv.addEventListener('pointerup', e=>{ if(drag&&e.pointerId===drag.id) drag=null; });
+cv.addEventListener('wheel', e=>{ e.preventDefault(); zoom=Math.max(0.35,Math.min(6,zoom*(1-Math.sign(e.deltaY)*0.09))); render(); }, {passive:false});
+cv.addEventListener('touchmove', e=>{ if(e.touches.length===2){ const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); if(pinch){ zoom=Math.max(0.35,Math.min(6,zoom*d/pinch)); render(); } pinch=d; } }, {passive:true});
+cv.addEventListener('touchend', ()=>{ pinch=0; });
+document.getElementById('dims').onclick = (e)=>{ showDims=!showDims; e.target.className = showDims ? 'on' : ''; render(); };
+document.getElementById('reset').onclick = ()=>{ az=-0.9; el=0.55; zoom=1; render(); };
+new ResizeObserver(render).observe(cv);
+init();
+</script>
+</body>
+</html>
