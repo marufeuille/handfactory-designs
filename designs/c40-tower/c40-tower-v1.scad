@@ -1,90 +1,107 @@
-// Comandante C40 stand — two-story tower (v1)
+// Comandante C40 stand — two-story tower (v1, four separate legs)
 // 1F: body, 2F: grounds jar, roof: crank hook. Floors double as dust lids.
-// Front is open: body and jar slide out forward (blind recesses, no through holes).
+// Front slide-out: legs are at the corners, footprint widened so the body
+// (Ø64) clears the front legs (inner gap 72mm).
 // Units: mm. Origin: front-left-bottom corner of the footprint. Z up.
-// part: "all" | "base" | "middle" | "roof"
+// part: "all" | "base" | "middle" | "roof" | "leg1" | "leg2"
 
 part = "all";
 
 // ---- parameters ----
-W = 96;              // footprint width  (x)
-D = 92;              // footprint depth  (y)
+W = 128;             // footprint width  (x) — wide enough for fingers around the body
+D = 104;             // footprint depth  (y)
 
-base_t = 12;         // 1F floor thickness
-body_bore = 64;      // body recess diameter (C40 body ~61 + clearance)
-body_recess_d = 6;   // blind recess depth (shallow: slide-out step)
-body_c = [48, 46];   // body centre (x, y)
+body_bore = 64;
+recess_d = 6;
+body_c = [64, 52];
+jar_bore = 62;
+jar_c = [64, 52];
 
-f2_under = 176;      // underside of 2F floor (body top 166 + slide lift 6 + margin 4)
-f2_t = 10;           // 2F floor thickness -> top at 186
-jar_bore = 62;       // jar recess diameter (jar ~60 + clearance)
-jar_recess_d = 6;
-jar_c = [48, 46];
+base_t = 18;         // 1F plate: z 0..18
+f2_under = 184;      // 2F plate underside (body top 172 + slide lift 6 + margin 6)
+mid_t = 20;          // 2F plate: z 184..204 (sockets 9 + web 2 + sockets 9)
+roof_under = 274;    // roof underside (jar top 263 + slide lift 6 + margin 5)
+roof_t = 14;         // roof plate: z 274..288
+lip_h = 12;          // front lip above roof -> total height 300
+lip_t = 5;
+notch_w = 16;
 
-roof_under = 250;    // underside of roof (jar top 245 + margin 5)
-roof_t = 10;         // roof thickness -> top at 260
-lip_h = 12;          // front lip height above roof (crank rest)
-lip_t = 5;           // front lip thickness
-notch_w = 16;        // centre notch in the lip for the crank shaft
-
-post = 18;           // back post cross-section (square)
-post_inset = 4;      // post inset from footprint edges
-socket = 12.6;       // tenon socket (12 peg + 0.3 clearance per side)
-socket_d = 10;
+leg = 16;            // leg cross-section (square)
+inset = 4;           // leg inset from footprint edges
 peg = 12;            // tenon peg cross-section
-peg_l = 10;
+peg_l = 8;           // peg length (socket depth 9, 1mm end clearance)
+socket = 12.6;       // socket (peg + 0.3 clearance per side)
+socket_d = 9;
 
 $fn = 128;
 
-post_x = [post_inset, W - post_inset - post];
-post_y = D - post_inset - post;
+leg_x = [inset, W - inset - leg];
+leg_y = [inset, D - inset - leg];
 
-module posts(h_z0, h_z1, sockets) {
-    for (x = post_x)
-        translate([x, post_y, h_z0])
-            difference() {
-                cube([post, post, h_z1 - h_z0]);
-                if (sockets)
-                    translate([(post - socket) / 2, (post - socket) / 2, h_z1 - h_z0 - socket_d])
-                        cube([socket, socket, socket_d + 1]);
-            }
-}
-
-module pegs(z_top) {
-    for (x = post_x)
-        translate([x + (post - peg) / 2, post_y + (post - peg) / 2, z_top - peg_l])
-            cube([peg, peg, peg_l]);
+module socket_cut(z0, h = socket_d) {
+    for (x = leg_x) for (y = leg_y)
+        translate([x + (leg - socket) / 2, y + (leg - socket) / 2, z0])
+            cube([socket, socket, h]);
 }
 
 module base() {
     difference() {
         cube([W, D, base_t]);
-        translate([body_c[0], body_c[1], base_t - body_recess_d])
-            cylinder(h = body_recess_d + 1, d = body_bore);
+        translate([body_c[0], body_c[1], base_t - recess_d])
+            cylinder(h = recess_d + 1, d = body_bore);
+        socket_cut(base_t - socket_d);
     }
-    posts(base_t, f2_under, true);
 }
 
 module middle() {
     difference() {
-        translate([0, 0, f2_under]) cube([W, D, f2_t]);
-        translate([jar_c[0], jar_c[1], f2_under + f2_t - jar_recess_d])
-            cylinder(h = jar_recess_d + 1, d = jar_bore);
+        translate([0, 0, f2_under]) cube([W, D, mid_t]);
+        translate([jar_c[0], jar_c[1], f2_under + mid_t - recess_d])
+            cylinder(h = recess_d + 1, d = jar_bore);
+        socket_cut(f2_under - 1, socket_d + 1);   // bottom sockets (open downward)
+        socket_cut(f2_under + mid_t - socket_d);  // top sockets
     }
-    pegs(f2_under);
-    posts(f2_under + f2_t, roof_under, true);
 }
 
 module roof() {
-    translate([0, 0, roof_under]) cube([W, D, roof_t]);
-    pegs(roof_under);
-    // front lip with a centre notch for the crank shaft
+    difference() {
+        translate([0, 0, roof_under]) cube([W, D, roof_t]);
+        socket_cut(roof_under - 1, socket_d + 1);
+    }
     lip_z = roof_under + roof_t;
     translate([0, 0, lip_z]) cube([(W - notch_w) / 2, lip_t, lip_h]);
     translate([(W + notch_w) / 2, 0, lip_z]) cube([(W - notch_w) / 2, lip_t, lip_h]);
 }
 
-if (part == "all") { base(); middle(); roof(); }
+// one leg at the front-left corner, in assembled position
+module leg1() {
+    x = leg_x[0]; y = leg_y[0];
+    translate([x + (leg - peg) / 2, y + (leg - peg) / 2, base_t - peg_l])
+        cube([peg, peg, peg_l]);
+    translate([x, y, base_t]) cube([leg, leg, f2_under - base_t]);
+    translate([x + (leg - peg) / 2, y + (leg - peg) / 2, f2_under])
+        cube([peg, peg, peg_l]);
+}
+
+module leg2() {
+    x = leg_x[0]; y = leg_y[0];
+    mid_top = f2_under + mid_t;
+    translate([x + (leg - peg) / 2, y + (leg - peg) / 2, mid_top - peg_l])
+        cube([peg, peg, peg_l]);
+    translate([x, y, mid_top]) cube([leg, leg, roof_under - mid_top]);
+    translate([x + (leg - peg) / 2, y + (leg - peg) / 2, roof_under])
+        cube([peg, peg, peg_l]);
+}
+
+module all_legs() {
+    for (x = leg_x) for (y = leg_y) {
+        translate([x - leg_x[0], y - leg_y[0], 0]) { leg1(); leg2(); }
+    }
+}
+
+if (part == "all") { base(); middle(); roof(); all_legs(); }
 if (part == "base") base();
 if (part == "middle") middle();
 if (part == "roof") roof();
+if (part == "leg1") leg1();
+if (part == "leg2") leg2();
