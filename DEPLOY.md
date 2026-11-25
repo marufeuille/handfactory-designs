@@ -56,10 +56,17 @@ dimension annotations follow the model when it is rotated.
 
 ## 3. (Optional) A hosted viewer in Muse
 
-If the owner uses Muse, a Space (web artifact) can host the same viewer:
-it fetches `designs.json` from the repository (raw.githubusercontent.com,
-falling back to the jsDelivr CDN) and needs no changes when designs are
-added. The repository stays the source of truth either way.
+If the owner uses Muse, a Space (web artifact) can host the same viewer.
+The Space viewer is **local-first**: the designs (manifest + STL files)
+are bundled into the Space and displayed from the bundle, because
+fetching the repository at open time proved unreliable (CDN and WebView
+caches serve stale copies). A background sync checks the repository and
+picks up differences, but the display never depends on it.
+
+Operational rule: whenever a design is added or changed in this
+repository, the Space's bundle must be re-synced (rebuilt) in the same
+operation, so the bundled snapshot does not drift from the repository.
+The repository stays the source of truth either way.
 
 ## 4. Ongoing operation
 
