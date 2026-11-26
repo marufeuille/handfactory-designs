@@ -8,6 +8,7 @@ part = "both"; // ["base", "pole", "both"]
 base_l = 165;          // base length (X)
 base_d = 80;           // base depth (Y)
 base_h = 15;           // base thickness (v2 was 20; thinned in v3)
+base_r = 4;            // base corner radius (vertical edges)
 sink = 8;              // how deep body/jar sink from the top
 
 /* [Bores - measure your grinder and add clearance] */
@@ -40,10 +41,6 @@ arm_tip_y = 10;        // arm tip Y (front side)
 lip_w = 6;             // hook lip size (along Y)
 lip_drop = 10;         // hook lip drop below the arm
 
-/* [Icons on the front face] */
-icons = true;          // engraved marks so the two bores are distinguishable
-icon_depth = 1.2;
-
 $fn = 128;
 cy = base_d / 2;
 
@@ -55,40 +52,39 @@ module frustum_c(cx, cyy, z0, h, wb, db, wt, dt) {
     }
 }
 
-module stepped_hole(cx, bore) {
-    thru = bore - 2 * shelf_w;
-    // upper bore (from top down to the shelf)
-    translate([cx, cy, base_h - sink]) cylinder(d = bore, h = sink + 1);
-    // through hole below the shelf (fines fall through)
-    translate([cx, cy, -1]) cylinder(d = thru, h = base_h - sink + 1);
+// U-shaped slot profile (plan view): a circle plus a channel to the front edge,
+// so the body / jar slide in from the front and fines sweep straight out
+module u_profile(cx, r) {
+    union() {
+        translate([cx, cy]) circle(r = r);
+        translate([cx - r, 0]) square([2 * r, cy]);
+    }
 }
 
-module front_icons() {
-    // jar side: a ring (the jar seen from above)
-    translate([jar_cx, 0, base_h / 2])
-        rotate([90, 0, 0])
-        difference() {
-            cylinder(d = 12, h = icon_depth + 1, center = true);
-            cylinder(d = 7.6, h = icon_depth + 3, center = true);
-        }
-    // body side: an asterisk (the burr seen from above)
-    translate([body_cx, 0, base_h / 2])
-        for (a = [0, 60, 120])
-            rotate([0, a, 0])
-            cube([12, icon_depth + 1, 2.2], center = true);
+module u_slot(cx, bore) {
+    thru = bore - 2 * shelf_w;
+    // upper seat (from the shelf up to the top face)
+    translate([0, 0, base_h - sink]) linear_extrude(sink + 1) u_profile(cx, bore / 2);
+    // narrower through-channel below the shelf (fines fall / sweep through)
+    translate([0, 0, -1]) linear_extrude(base_h - sink + 1) u_profile(cx, thru / 2);
+}
+
+module base_solid() {
+    linear_extrude(base_h)
+        hull() for (x = [base_r, base_l - base_r], y = [base_r, base_d - base_r])
+            translate([x, y]) circle(r = base_r);
 }
 
 module base() {
     difference() {
-        cube([base_l, base_d, base_h]);
-        stepped_hole(jar_cx, jar_bore);
-        stepped_hole(body_cx, body_bore);
+        base_solid();
+        u_slot(jar_cx, jar_bore);
+        u_slot(body_cx, body_bore);
         // pole socket (tapered: nominal sock_w x sock_d at the floor, widening upward)
         frustum_c(sock_cx, sock_cy, base_h - sock_depth, sock_depth + 1,
                   sock_w, sock_d,
                   sock_w + 2 * sock_taper * (sock_depth + 1) / sock_depth,
                   sock_d + 2 * sock_taper * (sock_depth + 1) / sock_depth);
-        if (icons) front_icons();
     }
 }
 
