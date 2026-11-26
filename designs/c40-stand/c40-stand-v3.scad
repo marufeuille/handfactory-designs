@@ -1,15 +1,16 @@
 // Comandante C40 stand v3 - parametric design for distribution
-// One piece: two U-slots (grinder body / grounds jar) plus handle storage
-// along the back strip - the lid drops edge-on into a slot and leans back
-// against a low half-round rest; the arm lies along the back and the knob
-// rests near the far corner. Prints flat, no supports.
+// One piece: two U-slots (grinder body / grounds jar) plus flat handle
+// storage along the back - the lid lies flat in a shallow round recess
+// with a hex pocket for its centre shaft, the arm lies in a shallow
+// channel along the back, and the knob hangs past the far corner.
+// Prints flat, no supports.
 // Units: mm. Adjust the parameters below to fit your grinder (C40/C60, individual variance).
 
 part = "base"; // ["base", "both"]
 
 /* [Base] */
 base_l = 144;          // base length (X) (trimmed: no margin right of the body seat)
-base_d = 105;          // base depth (Y) (deepened for the back strip)
+base_d = 138;          // base depth (Y) (deepened for the flat handle zone)
 base_h = 15;           // base thickness (v2 was 20; thinned in v3)
 base_r = 4;            // base corner radius (vertical edges)
 sink = 8;              // how deep body/jar sink from the top
@@ -21,14 +22,15 @@ jar_bore = 62;         // grounds jar hole diameter
 jar_cx = 38;           // jar bore centre X
 body_cx = 106;         // body bore centre X
 
-/* [Handle storage - along the back strip] */
-lid_cx = 33;           // lid slot centre X (left end of the back strip)
-lid_cy = 90;           // lid slot centre Y
-lid_slot_l = 58;       // slot length (X): the 58 dia. lid drops in edge-on
-lid_slot_w = 14;       // slot width (Y): lid thickness + clearance
-lid_slot_floor = 5;    // slot floor height (10 deep)
-rest_h = 22;           // lean-rest wall height above the base top
-rest_r = 20;           // lean-rest plan radius (half-round bump behind the slot)
+/* [Handle storage - flat, along the back] */
+lid_cx = 42;           // lid recess centre X (left end of the back zone)
+lid_cy = 105;          // lid recess centre Y
+lid_recess_d = 61;     // recess diameter (the 58 dia. lid plate lies in it)
+lid_recess_depth = 3;  // recess depth (the lid plate is ~3 thick)
+hex_af = 12;           // hex pocket across-flats for the lid's centre shaft (MEASURE ME)
+hex_depth = 10;        // hex pocket depth
+arm_chan_w = 12;       // arm channel width (Y)
+arm_chan_depth = 2;    // arm channel depth
 
 $fn = 128;
 cy = seat_y;
@@ -59,35 +61,28 @@ module base_solid() {
             translate([x, y]) circle(r = base_r);
 }
 
-// stadium profile along X, centred (for the lid slot)
+// stadium profile along X, centred (for the arm channel)
 module capsule_x(l, w) {
     hull() for (sx = [-1, 1]) translate([sx * (l - w) / 2, 0]) circle(r = w / 2);
 }
 
-// lean-rest wall: a half-round bump behind the lid slot (clipped by the
-// base outline); the lid leans back against its flat front face
-module rest_wall() {
-    translate([0, 0, base_h]) linear_extrude(rest_h)
-        intersection() {
-            translate([base_l / 2, base_d / 2]) rrect(base_l, base_d, base_r);
-            translate([lid_cx, lid_cy + lid_slot_w / 2])
-                intersection() {
-                    circle(r = rest_r);
-                    translate([0, rest_r / 2]) square([2 * rest_r, rest_r], center = true);
-                }
-        }
+// hexagonal pocket profile, centred (across-flats = af)
+module hex_profile(af) {
+    polygon([for (i = [0 : 5]) let (a = i * 60 + 30) (af / sqrt(3)) * [cos(a), sin(a)]]);
 }
 
 module base() {
-    union() {
-        difference() {
-            base_solid();
-            u_slot(jar_cx, jar_bore);
-            u_slot(body_cx, body_bore);
-            // lid slot along X in the back strip
-            translate([lid_cx, lid_cy, lid_slot_floor]) linear_extrude(base_h - lid_slot_floor + 1) capsule_x(lid_slot_l, lid_slot_w);
-        }
-        rest_wall();
+    difference() {
+        base_solid();
+        u_slot(jar_cx, jar_bore);
+        u_slot(body_cx, body_bore);
+        // lid recess (the lid plate lies flat in it)
+        translate([lid_cx, lid_cy, base_h - lid_recess_depth]) linear_extrude(lid_recess_depth + 1) circle(r = lid_recess_d / 2);
+        // hex pocket at the recess centre (the lid's centre shaft drops in;
+        // the hex also stops the handle rotating in the recess)
+        translate([lid_cx, lid_cy, base_h - hex_depth]) linear_extrude(hex_depth + 1) hex_profile(hex_af);
+        // arm channel along the back, from the recess to the right edge
+        translate([(lid_cx + 30 + base_l) / 2, lid_cy, base_h - arm_chan_depth]) linear_extrude(arm_chan_depth + 1) capsule_x(base_l - lid_cx - 30, arm_chan_w);
     }
 }
 
