@@ -532,23 +532,18 @@
     },
     {
       "id": "c40-dust-cap",
-      "name": "コマンダンテ C40 本体用 防塵キャップ v1",
+      "name": "コマンダンテ C40 本体用 防塵キャップ（カップ型）",
       "dir": "designs/c40-dust-cap",
       "source": "c40-dust-cap-v1.scad",
       "parts": [
         {
-          "id": "cup",
-          "label": "カップ型",
+          "id": "all",
+          "label": "全体",
           "file": "dust-cap-v1.stl"
-        },
-        {
-          "id": "umbrella",
-          "label": "傘型（軽量）",
-          "file": "umbrella-cap-v1.stl"
         }
       ],
       "dims": {
-        "cup": {
+        "all": {
           "lines": [
             [
               [
@@ -597,8 +592,23 @@
               "内径 Ø63.5"
             ]
           ]
-        },
-        "umbrella": {
+        }
+      }
+    },
+    {
+      "id": "c40-dust-cap-umbrella",
+      "name": "コマンダンテ C40 本体用 防塵キャップ（傘型）",
+      "dir": "designs/c40-dust-cap-umbrella",
+      "source": "c40-umbrella-cap-v1.scad",
+      "parts": [
+        {
+          "id": "all",
+          "label": "全体",
+          "file": "umbrella-cap-v1.stl"
+        }
+      ],
+      "dims": {
+        "all": {
           "lines": [
             [
               [
