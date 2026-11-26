@@ -1,5 +1,5 @@
 // Comandante C40 stand v3 - parametric, split/assembly design for distribution
-// Parts: "base" (with post slot), "pole" (5x5 bar post with a Y-fork top, print it lying flat), "both" (preview)
+// Parts: "base" (with arch slots), "pole" (5x5 arch, print it lying flat), "both" (preview)
 // Units: mm. Adjust the parameters below to fit your grinder (C40/C60, individual variance).
 
 part = "both"; // ["base", "pole", "both"]
@@ -17,15 +17,13 @@ jar_bore = 62;         // grounds jar hole diameter
 jar_cx = 38;           // jar bore centre X
 body_cx = 106;         // body bore centre X
 
-/* [Post - 5x5 bar, back-centre between the two seats] */
-post_t = 5;            // bar cross-section: 5x5 (stem width in X, thickness in Y)
-post_cx = 71.5;        // post centre X (also the centre of the trimmed base)
-post_cy = 62;          // post centre Y
-stem_top = 152;        // where the stem ends and the fork takes over
-prong_base_dx = 3;     // prong centre offset from the post centre at the root
-prong_base_z = 148;    // prong root height (embedded in the stem)
-prong_tip_dx = 21;     // prong centre offset at the tip (the fork opens in X)
-prong_tip_z = 171;     // prong tip centre height (overall height = this + 2.5)
+/* [Arch - 5x5 bar, legs at both back corners] */
+post_t = 5;            // bar cross-section: 5x5
+arch_cy = 66;          // arch plane Y (back row)
+leg_half = 62;         // legs at base centre X +/- this (10 and 134)
+spring_z = 150;        // where the arc springs from the legs
+peak_z = 174;          // arch midline peak height (outer peak = this + 2.5)
+leg_top = 150;         // leg height (ends at the springing, inside the arc band)
 sock_depth = 12;       // slot socket depth (base_h - 3 floor)
 
 $fn = 128;
@@ -62,36 +60,49 @@ module base() {
         base_solid();
         u_slot(jar_cx, jar_bore);
         u_slot(body_cx, body_bore);
-        // post slot socket (tapered in X: post size at the floor, widening upward)
-        hull() {
-            translate([post_cx, post_cy, base_h - sock_depth]) linear_extrude(0.1) rrect(post_t, post_t + 0.6, 1.5);
-            translate([post_cx, post_cy, base_h + 0.9]) linear_extrude(0.1) rrect(post_t + 1.7, post_t + 0.6, 1.5);
-        }
-    }
-}
-
-// the post is a planar Y profile (in the XZ plane) extruded 5 thick in Y;
-// the handle bar rests front-to-back in the fork, its flat arm cradled
-// between the prongs, lid toward the back, knob toward the front
-module post_profile() {
-    union() {
-        // tenon (tapered in X: wedges into the slot before bottoming out)
-        polygon([[post_cx - 2.5, 3.5], [post_cx + 2.5, 3.5],
-                 [post_cx + 3.05, base_h], [post_cx - 3.05, base_h]]);
-        // stem (5 wide)
-        translate([post_cx, (base_h + stem_top) / 2]) square([post_t, stem_top - base_h], center = true);
-        // prongs (5-wide capsules splayed in X)
-        for (s = [-1, 1])
+        // arch leg slots (tapered in X: bar size at the floor, widening upward)
+        for (sx = [base_l / 2 - leg_half, base_l / 2 + leg_half])
             hull() {
-                translate([post_cx + s * prong_base_dx, prong_base_z]) circle(r = 2.5);
-                translate([post_cx + s * prong_tip_dx, prong_tip_z]) circle(r = 2.5);
+                translate([sx, arch_cy, base_h - sock_depth]) linear_extrude(0.1) rrect(post_t, post_t + 0.6, 1.5);
+                translate([sx, arch_cy, base_h + 0.9]) linear_extrude(0.1) rrect(post_t + 1.7, post_t + 0.6, 1.5);
             }
     }
 }
 
+// the arch is a planar profile (in the XZ plane) extruded 5 thick in Y:
+// two legs with tapered tenons and a shallow arc band on top; the handle
+// bar rests front-to-back in the shallow dip at the peak, lid toward the
+// back, knob toward the front
+module arch_profile() {
+    cx0 = base_l / 2;
+    arc_cz = (peak_z * peak_z - spring_z * spring_z - leg_half * leg_half) / (2 * (peak_z - spring_z));
+    r_mid = peak_z - arc_cz;
+    difference() {
+        union() {
+            for (s = [-1, 1]) {
+                // tenon (tapered in X: wedges into the slot)
+                polygon([[cx0 + s * leg_half - 2.5, 3.5], [cx0 + s * leg_half + 2.5, 3.5],
+                         [cx0 + s * leg_half + 3.05, base_h], [cx0 + s * leg_half - 3.05, base_h]]);
+                // leg (5 wide)
+                translate([cx0 + s * leg_half, (base_h + leg_top) / 2]) square([post_t, leg_top - base_h], center = true);
+            }
+            // arc band (5 thick, radially)
+            intersection() {
+                difference() {
+                    translate([cx0, arc_cz]) circle(r = r_mid + 2.5);
+                    translate([cx0, arc_cz]) circle(r = r_mid - 2.5);
+                }
+                translate([cx0, 172]) square([2 * leg_half + post_t, 56], center = true);
+            }
+        }
+        // shallow dip at the peak for the handle bar
+        translate([cx0, peak_z + 19.5]) circle(r = 20);
+    }
+}
+
 module pole() {
-    translate([0, post_cy + post_t / 2, 0])
-        rotate([90, 0, 0]) linear_extrude(post_t) post_profile();
+    translate([0, arch_cy + post_t / 2, 0])
+        rotate([90, 0, 0]) linear_extrude(post_t) arch_profile();
 }
 
 if (part == "base") base();
