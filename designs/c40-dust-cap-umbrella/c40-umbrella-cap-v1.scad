@@ -11,7 +11,7 @@ $fn = 96;
 // --- parameters (mm) ---
 disk_d       = 66;   // canopy diameter (body is ~60-61)
 disk_t       = 3;    // canopy thickness
-skirt_h      = 3;    // centring skirt height below the disk
+skirt_h      = 7;    // centring skirt height below the disk (= boss_h, so the bottom is one flat plane for printing)
 skirt_in_d   = 62.5; // skirt inner diameter (body OD ~61 + clearance)
 boss_d       = 12;   // centre boss outer diameter
 boss_h       = 7;    // boss protrusion below disk underside
