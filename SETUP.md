@@ -70,6 +70,20 @@ Coordinates are model coordinates in mm, in the same space as the STL.
   Example: `[[138,40,15],-46,-30,"Ø64"]` labels a Ø64 bore from a point
   on its rim.
 
+## 3.5 Branches: prototypes vs fixed
+
+State is expressed with branches, not with a status field.
+
+- **`main` holds fixed designs only** — designs that have been printed
+  and confirmed. The hosted viewer is extracted from `main`, so only
+  fixed designs appear in it.
+- **Prototypes live on `proto/<design-id>` branches.** A proto branch
+  carries the fixed designs plus its own prototype, so its
+  `designs.json` stays a superset that merges cleanly.
+- **Merging a proto branch into `main` is the FIX act**: the design is
+  printed, confirmed, and published in one step. After merging,
+  re-extract the viewer from `main`.
+
 ## 4. Commit, push, verify
 
 One commit per design (STL files + manifest entry together), then push.
