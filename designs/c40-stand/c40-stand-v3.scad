@@ -59,6 +59,11 @@ module base_solid() {
             translate([x, y]) circle(r = base_r);
 }
 
+// stadium profile along X, centred (for the lid slot)
+module capsule_x(l, w) {
+    hull() for (sx = [-1, 1]) translate([sx * (l - w) / 2, 0]) circle(r = w / 2);
+}
+
 // lean-rest wall: a half-round bump behind the lid slot (clipped by the
 // base outline); the lid leans back against its flat front face
 module rest_wall() {
@@ -80,7 +85,7 @@ module base() {
             u_slot(jar_cx, jar_bore);
             u_slot(body_cx, body_bore);
             // lid slot along X in the back strip
-            translate([lid_cx, lid_cy, lid_slot_floor]) linear_extrude(base_h - lid_slot_floor + 1) rrect(lid_slot_l, lid_slot_w, 7);
+            translate([lid_cx, lid_cy, lid_slot_floor]) linear_extrude(base_h - lid_slot_floor + 1) capsule_x(lid_slot_l, lid_slot_w);
         }
         rest_wall();
     }
