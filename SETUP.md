@@ -75,8 +75,10 @@ Coordinates are model coordinates in mm, in the same space as the STL.
 State is expressed with branches, not with a status field.
 
 - **`main` holds fixed designs only** — designs that have been printed
-  and confirmed. The hosted viewer is extracted from `main`, so only
-  fixed designs appear in it.
+  and confirmed. A public showcase (e.g. a project site) is extracted
+  from `main`, so only fixed designs appear in it. The owner's private
+  workbench viewer is extracted from all branches instead, with each
+  design labelled by its branch, so prototypes stay visible there.
 - **Prototypes live on `proto/<design-id>` branches.** A proto branch
   carries the fixed designs plus its own prototype, so its
   `designs.json` stays a superset that merges cleanly.
