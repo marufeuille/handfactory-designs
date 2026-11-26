@@ -1,5 +1,5 @@
 // Comandante C40 stand v3 - parametric, split/assembly design for distribution
-// Parts: "base" (with pole socket), "pole" (L-shaped, print it lying flat), "both" (preview)
+// Parts: "base" (with post socket), "pole" (centre post with a Y-fork, print it lying flat), "both" (preview)
 // Units: mm. Adjust the parameters below to fit your grinder (C40/C60, individual variance).
 
 part = "both"; // ["base", "pole", "both"]
@@ -17,7 +17,7 @@ jar_bore = 62;         // grounds jar hole diameter
 jar_cx = 38;           // jar bore centre X
 body_cx = 106;         // body bore centre X
 
-/* [Pole socket - back-right corner] */
+/* [Post socket - back-centre, between the two seats] */
 pole_r = 10;           // pole radius (D-profile: circle r=10, flat cut at +X)
 flat_off = 6;          // flat offset from the pole centre (+X side): the flat is
                        // the anti-rotation face and the face the pole lies on
@@ -28,17 +28,17 @@ tenon_root_clear = 0.15; // tenon root clearance per side at the rim
 tenon_len = 11.5;      // sock_depth - 0.5: walls wedge before the tip bottoms out
 tenon_taper = 0.6;     // gentler than sock_taper: the gap closes with depth,
                        // so the tenon tip seats firm as the pole shoulder lands
-sock_cx = 149;         // socket centre X (inboard, so the round socket keeps its wall)
-sock_cy = 63;          // socket centre Y
+sock_cx = 71.5;        // post centre X
+sock_cy = 66;          // post centre Y
 
-/* [Pole] */
-pole_top = 160;        // total height when assembled (same as v2)
+/* [Post and Y-fork] */
 // tenon clearance is handled by the taper (sock_taper / tenon_root_clear)
-arm_z0 = 148;          // arm underside height
-arm_t = 10;            // arm thickness
-arm_tip_y = 10;        // arm tip Y (front side)
-lip_w = 6;             // hook lip size (along Y)
-lip_drop = 10;         // hook lip drop below the arm
+stem_top = 156;        // where the stem ends and the fork takes over
+prong_r = 7;           // fork prong radius
+prong_base_dy = 6;     // prong centre offset from the post centre at the root
+prong_base_z = 144;    // prong root height (embedded in the stem)
+prong_tip_dy = 20;     // prong centre offset at the tip
+prong_tip_z = 169;     // prong tip centre height (overall height = this + prong_r = 176)
 
 $fn = 128;
 cy = base_d / 2;
@@ -96,24 +96,30 @@ module base() {
 }
 
 module pole() {
-    // tenon (tapered D; its flat stays at flat_off, coplanar with the shaft
-    // flat, so the whole pole rests on that face when printed flat)
-    tenon_root_r = pole_r + sock_taper - tenon_root_clear;
-    tenon_tip_r = tenon_root_r - tenon_taper * tenon_len / sock_depth;
-    d_frustum(sock_cx, sock_cy, base_h - tenon_len,
-              tenon_tip_r, flat_off,
-              base_h,
-              tenon_root_r, flat_off);
-    // main shaft (D-profile)
-    translate([sock_cx, sock_cy, base_h])
-        linear_extrude(pole_top - base_h) d_profile(pole_r, flat_off);
-    // top arm: from the shaft forward (-Y), flush with the shaft flat (+X)
-    arm_y1 = sock_cy + pole_r;
-    translate([sock_cx - pole_r, arm_tip_y, arm_z0])
-        cube([pole_r + flat_off, arm_y1 - arm_tip_y, arm_t]);
-    // hook lip at the arm tip
-    translate([sock_cx - pole_r, arm_tip_y, arm_z0 - lip_drop])
-        cube([pole_r + flat_off, lip_w, lip_drop]);
+    intersection() {
+        union() {
+            // tenon (tapered D; its flat stays at flat_off, coplanar with the
+            // stem flat, so the whole post rests on that face printed flat)
+            tenon_root_r = pole_r + sock_taper - tenon_root_clear;
+            tenon_tip_r = tenon_root_r - tenon_taper * tenon_len / sock_depth;
+            d_frustum(sock_cx, sock_cy, base_h - tenon_len,
+                      tenon_tip_r, flat_off,
+                      base_h,
+                      tenon_root_r, flat_off);
+            // main stem (D-profile)
+            translate([sock_cx, sock_cy, base_h])
+                linear_extrude(stem_top - base_h) d_profile(pole_r, flat_off);
+            // Y-fork prongs (capsules splayed in the YZ plane); the handle
+            // bar rests in the V, captured between its lid and its knob
+            for (s = [-1, 1])
+                hull() {
+                    translate([sock_cx, sock_cy + s * prong_base_dy, prong_base_z]) sphere(r = prong_r);
+                    translate([sock_cx, sock_cy + s * prong_tip_dy, prong_tip_z]) sphere(r = prong_r);
+                }
+        }
+        // keep the +X flat (printing face / anti-rotation flat)
+        translate([sock_cx + flat_off - 60, sock_cy - 100, -10]) cube([60, 200, 300]);
+    }
 }
 
 if (part == "base") base();

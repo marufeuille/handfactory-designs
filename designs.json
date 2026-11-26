@@ -9,17 +9,20 @@
         {
           "id": "all",
           "label": "全体",
-          "file": "stand-v3-both.stl"
+          "file": "stand-v3-both.stl",
+          "dims": {}
         },
         {
           "id": "base",
           "label": "台座のみ",
-          "file": "stand-v3-base.stl"
+          "file": "stand-v3-base.stl",
+          "name": "ポスト（Yフォーク）のみ"
         },
         {
           "id": "pole",
           "label": "ポールのみ",
-          "file": "stand-v3-pole.stl"
+          "file": "stand-v3-pole.stl",
+          "name": "台座＋ポスト 組立"
         }
       ],
       "dims": {
