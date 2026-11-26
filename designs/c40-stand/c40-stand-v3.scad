@@ -14,7 +14,6 @@ sink = 8;              // how deep body/jar sink from the top
 /* [Bores - measure your grinder and add clearance] */
 body_bore = 64;        // body hole diameter (v2: 63 was a tight fit -> +1)
 jar_bore = 62;         // grounds jar hole diameter
-shelf_w = 7;           // shelf ledge width (through-hole = bore - 2*shelf_w)
 jar_cx = 38;           // jar bore centre X
 body_cx = 106;         // body bore centre X
 
@@ -71,11 +70,9 @@ module u_profile(cx, r) {
 }
 
 module u_slot(cx, bore) {
-    thru = bore - 2 * shelf_w;
-    // upper seat (from the shelf up to the top face)
+    // seat down to the shelf only; the shelf is a solid U-shaped floor.
+    // No through-hole: the slot opens at the front, so fines sweep out.
     translate([0, 0, base_h - sink]) linear_extrude(sink + 1) u_profile(cx, bore / 2);
-    // narrower through-channel below the shelf (fines fall / sweep through)
-    translate([0, 0, -1]) linear_extrude(base_h - sink + 1) u_profile(cx, thru / 2);
 }
 
 module base_solid() {
