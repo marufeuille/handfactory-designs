@@ -82,7 +82,7 @@ module base() {
         // the hex also stops the handle rotating in the recess)
         translate([lid_cx, lid_cy, base_h - hex_depth]) linear_extrude(hex_depth + 1) hex_profile(hex_af);
         // arm channel along the back, from the recess to the right edge
-        translate([(lid_cx + 30 + base_l) / 2, lid_cy, base_h - arm_chan_depth]) linear_extrude(arm_chan_depth + 1) capsule_x(base_l - lid_cx - 30, arm_chan_w);
+        translate([(lid_cx + 30 + base_l + 4) / 2, lid_cy, base_h - arm_chan_depth]) linear_extrude(arm_chan_depth + 1) capsule_x(base_l + 4 - lid_cx - 30, arm_chan_w);
     }
 }
 
