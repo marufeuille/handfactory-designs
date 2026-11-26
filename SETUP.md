@@ -48,6 +48,11 @@ Fields:
 - `source`: optional; the design source file in the same folder.
 - `parts`: at least one. `id` is referenced by `dims`; `label` is the
   button text; `file` is the STL name inside `dir`.
+  **Parts are assembly components only** — pieces that are printed
+  separately and combined into one object (e.g. a base and a pole).
+  A different *shape* for the same purpose (e.g. a cup-type and an
+  umbrella-type dust cap) is not a part: register it as its own
+  design with its own `id` and folder.
 - `dims`: optional annotations per part id (see below). Omit it and the
   design simply shows without dimension lines.
 
