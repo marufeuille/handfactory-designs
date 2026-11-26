@@ -103,13 +103,14 @@ module pole() {
     // main shaft
     translate([sock_cx - pole_w / 2, sock_cy - pole_d / 2, base_h])
         cube([pole_w, pole_d, pole_top - base_h]);
-    // top arm: from the shaft forward (-Y)
+    // top arm: from the shaft forward (-Y). Full pole_w wide, flush with the
+    // shaft faces, so the pole stays a uniform extrusion and prints flat.
     arm_y1 = sock_cy + pole_d / 2;
-    translate([sock_cx - pole_w / 2 + 2, arm_tip_y, arm_z0])
-        cube([pole_w - 4, arm_y1 - arm_tip_y, arm_t]);
+    translate([sock_cx - pole_w / 2, arm_tip_y, arm_z0])
+        cube([pole_w, arm_y1 - arm_tip_y, arm_t]);
     // hook lip at the arm tip
-    translate([sock_cx - pole_w / 2 + 2, arm_tip_y, arm_z0 - lip_drop])
-        cube([pole_w - 4, lip_w, lip_drop]);
+    translate([sock_cx - pole_w / 2, arm_tip_y, arm_z0 - lip_drop])
+        cube([pole_w, lip_w, lip_drop]);
 }
 
 if (part == "base") base();
