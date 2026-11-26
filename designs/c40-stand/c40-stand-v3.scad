@@ -1,11 +1,11 @@
 // Comandante C40 stand v3 - parametric, split/assembly design for distribution
-// Parts: "base" (with post socket), "pole" (centre post with a Y-fork, print it lying flat), "both" (preview)
+// Parts: "base" (with post slot), "pole" (slim 5 mm blade post with a Y-fork top, print it lying flat), "both" (preview)
 // Units: mm. Adjust the parameters below to fit your grinder (C40/C60, individual variance).
 
 part = "both"; // ["base", "pole", "both"]
 
 /* [Base] */
-base_l = 165;          // base length (X)
+base_l = 144;          // base length (X) (trimmed: no margin right of the body seat)
 base_d = 80;           // base depth (Y)
 base_h = 15;           // base thickness (v2 was 20; thinned in v3)
 base_r = 4;            // base corner radius (vertical edges)
@@ -17,47 +17,22 @@ jar_bore = 62;         // grounds jar hole diameter
 jar_cx = 38;           // jar bore centre X
 body_cx = 106;         // body bore centre X
 
-/* [Post socket - back-centre, between the two seats] */
-pole_r = 10;           // pole radius (D-profile: circle r=10, flat cut at +X)
-flat_off = 6;          // flat offset from the pole centre (+X side): the flat is
-                       // the anti-rotation face and the face the pole lies on
-                       // when printed flat
-sock_depth = 12;       // socket depth (base_h - 3 floor)
-sock_taper = 0.75;     // socket + tenon taper, mm per side over sock_depth (wedge fit)
-tenon_root_clear = 0.15; // tenon root clearance per side at the rim
-tenon_len = 11.5;      // sock_depth - 0.5: walls wedge before the tip bottoms out
-tenon_taper = 0.6;     // gentler than sock_taper: the gap closes with depth,
-                       // so the tenon tip seats firm as the pole shoulder lands
-sock_cx = 71.5;        // post centre X
-sock_cy = 66;          // post centre Y
-
-/* [Post and Y-fork] */
-// tenon clearance is handled by the taper (sock_taper / tenon_root_clear)
-stem_top = 156;        // where the stem ends and the fork takes over
-prong_r = 7;           // fork prong radius
-prong_base_dy = 6;     // prong centre offset from the post centre at the root
-prong_base_z = 144;    // prong root height (embedded in the stem)
-prong_tip_dy = 20;     // prong centre offset at the tip
-prong_tip_z = 169;     // prong tip centre height (overall height = this + prong_r = 176)
+/* [Blade post - back-centre, between the two seats] */
+blade_t = 5;           // blade thickness (X): a slim rounded bar, not a pole
+blade_w = 30;          // blade width (Y)
+blade_cx = 71.5;       // post centre X (also the centre of the trimmed base)
+blade_cy = 62;         // post centre Y
+blade_top = 176;       // horn tip height (overall post height)
+valley_z = 164;        // fork valley floor: the handle bar rests here
+valley_w = 20;         // fork valley width (Y)
+sock_depth = 12;       // slot socket depth (base_h - 3 floor)
 
 $fn = 128;
 cy = base_d / 2;
 
-// D-shaped profile (plan view), centred on the origin: a circle of radius r
-// with the +X side cut flat at x = f
-module d_profile(r, f) {
-    intersection() {
-        circle(r = r);
-        translate([-r, -r]) square([r + f, 2 * r]);
-    }
-}
-
-// tapered D solid between z0 (r0, f0) and z1 (r1, f1), centred at (cx, cy)
-module d_frustum(cx, cyy, z0, r0, f0, z1, r1, f1) {
-    hull() {
-        translate([cx, cyy, z0]) linear_extrude(0.1) d_profile(r0, f0);
-        translate([cx, cyy, z1 - 0.1]) linear_extrude(0.1) d_profile(r1, f1);
-    }
+// centred rounded rectangle (plan view), w along X, d along Y
+module rrect(w, d, r) {
+    offset(r = r) square([w - 2 * r, d - 2 * r], center = true);
 }
 
 // U-shaped slot profile (plan view): a circle plus a channel to the front edge,
@@ -86,39 +61,36 @@ module base() {
         base_solid();
         u_slot(jar_cx, jar_bore);
         u_slot(body_cx, body_bore);
-        // pole socket (tapered D: nominal at the floor, widening upward)
-        d_frustum(sock_cx, sock_cy, base_h - sock_depth,
-                  pole_r, flat_off,
-                  base_h + 1,
-                  pole_r + sock_taper * (sock_depth + 1) / sock_depth,
-                  flat_off + sock_taper * (sock_depth + 1) / sock_depth);
+        // blade slot socket (tapered: blade size at the floor, widening upward)
+        hull() {
+            translate([blade_cx, blade_cy, base_h - sock_depth]) linear_extrude(0.1) rrect(blade_t, blade_w, 2);
+            translate([blade_cx, blade_cy, base_h + 0.9]) linear_extrude(0.1) rrect(blade_t + 1.7, blade_w + 1.7, 2);
+        }
     }
 }
 
 module pole() {
-    intersection() {
-        union() {
-            // tenon (tapered D; its flat stays at flat_off, coplanar with the
-            // stem flat, so the whole post rests on that face printed flat)
-            tenon_root_r = pole_r + sock_taper - tenon_root_clear;
-            tenon_tip_r = tenon_root_r - tenon_taper * tenon_len / sock_depth;
-            d_frustum(sock_cx, sock_cy, base_h - tenon_len,
-                      tenon_tip_r, flat_off,
-                      base_h,
-                      tenon_root_r, flat_off);
-            // main stem (D-profile)
-            translate([sock_cx, sock_cy, base_h])
-                linear_extrude(stem_top - base_h) d_profile(pole_r, flat_off);
-            // Y-fork prongs (capsules splayed in the YZ plane); the handle
-            // bar rests in the V, captured between its lid and its knob
-            for (s = [-1, 1])
-                hull() {
-                    translate([sock_cx, sock_cy + s * prong_base_dy, prong_base_z]) sphere(r = prong_r);
-                    translate([sock_cx, sock_cy + s * prong_tip_dy, prong_tip_z]) sphere(r = prong_r);
-                }
+    // tenon (tapered: wedges into the slot before its tip bottoms out)
+    hull() {
+        translate([blade_cx, blade_cy, base_h - 11.5]) linear_extrude(0.1) rrect(blade_t, blade_w, 2);
+        translate([blade_cx - 0.55, blade_cy, base_h - 0.1]) linear_extrude(0.1) rrect(blade_t + 1.1, blade_w + 1.1, 2);
+    }
+    // blade: a rounded slab (hull of X-axis cylinders) with a valley cut
+    // between the two horns at the top; the handle bar rests in the valley,
+    // captured between its lid and its knob
+    difference() {
+        hull()
+            for (sy = [-1, 1], zz = [base_h + 2.5, valley_z - 2.5, blade_top - 2.5])
+                translate([blade_cx - blade_t / 2, blade_cy + sy * (blade_w / 2 - 2.5), zz])
+                    rotate([0, 90, 0]) cylinder(h = blade_t, r = 2.5);
+        // valley cut (flat floor, filleted entries)
+        hull() {
+            for (sy = [-1, 1])
+                translate([blade_cx - blade_t / 2 - 1, blade_cy + sy * (valley_w / 2 - 3), valley_z + 3])
+                    rotate([0, 90, 0]) cylinder(h = blade_t + 2, r = 3);
+            translate([blade_cx, blade_cy, (valley_z + 3 + blade_top + 10) / 2])
+                cube([blade_t + 2, valley_w, blade_top + 10 - valley_z - 3], center = true);
         }
-        // keep the +X flat (printing face / anti-rotation flat)
-        translate([sock_cx + flat_off - 60, sock_cy - 100, -10]) cube([60, 200, 300]);
     }
 }
 
