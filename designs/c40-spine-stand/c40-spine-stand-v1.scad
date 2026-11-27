@@ -15,14 +15,16 @@ cup_h       = 65;   // catch cup height (nominal)
 plate_w = 106; plate_d = 110; plate_t = 8; plate_r = 6;
 // plate spans y in [-66, +44]; body axis at origin
 
-// body claw ring (front-open): annular groove catches the body's
-// bottom rim (rim protrudes 2mm per owner's photo) from both sides
-claw_ro = 40;       // outer Ø80
-claw_open = 120;    // front opening angle (deg, centred on +y)
+// body seat (owner's revision): body stands at plate level; its bottom
+// rim (protrudes 2mm) drops into a shallow groove in the plate, caught
+// by an inner island (~2mm) and a low back wall (~10mm)
 groove_ro = 32;     // groove outer wall Ø64
-groove_floor = 16;  // groove depth 3mm below seat top (19)
-post_r = 26;        // inner post Ø52, top 2mm above groove floor (catch only)
-well_r = 20;        // centre well Ø40 (grounds fall to plate)
+groove_ri = 26;     // groove inner Ø52 (island edge = inner catch)
+groove_floor = 5;   // 3mm below plate top (plate top z=8)
+island_top = 6.8;   // island stands ~1.8mm above groove floor
+wall_ro = 40;       // back wall outer Ø80, inner face = groove outer wall
+wall_top = 18;      // 10mm above plate top
+wall_arc = 130;     // back wall arc (deg, centred on -y)
 
 // spine
 spine_w = 20; spine_d = 22;
@@ -32,13 +34,13 @@ socket_w = 13; socket_d = 15; socket_depth = 28;
 tenon_w = 12.4; tenon_d = 14.4;        // 0.3/side clearance
 
 // cup shelf (on top part)
-shelf_z0 = 192; shelf_t = 8;           // underside clears body top (174) + axle stub (仮 ~186)
+shelf_z0 = 184; shelf_t = 8;           // underside clears body top (174) + axle stub (仮 ~186)
 shelf_r  = 40;
 shelf_hole = 30;                       // centre hole so the axle stub can poke through (仮)
 cup_recess = 2.5;
 
 // top arm (crank hook, provisional — fit unverified)
-arm_z0 = 268; arm_t = 10;              // top at 278
+arm_z0 = 260; arm_t = 10;              // top at 278
 arm_w = 64; arm_y1 = 36;               // extends forward from spine
 slot_w = 24; slot_back = -6;           // U-notch for crank shaft, lid rests on arm
 
@@ -48,13 +50,22 @@ module rounded_plate() {
       cylinder(h = plate_t, r = plate_r);
 }
 
-module claw_ring() {
-  // partial annulus with groove profile: spans 240 deg, opening at front (+y)
-  rotate([0, 0, 90 + claw_open/2])
-    rotate_extrude(angle = 360 - claw_open)
-      polygon([[well_r, 8], [claw_ro, 8], [claw_ro, 19],
-               [groove_ro, 19], [groove_ro, groove_floor],
-               [post_r, groove_floor], [post_r, 18], [well_r, 18]]);
+module back_wall() {
+  // low arc wall at the back only; front and sides stay open
+  rotate([0, 0, 270 - wall_arc/2])
+    rotate_extrude(angle = wall_arc)
+      polygon([[groove_ro, 8], [wall_ro, 8], [wall_ro, wall_top],
+               [groove_ro, wall_top]]);
+}
+
+module seat_cuts() {
+  // annular groove in the plate top
+  difference() {
+    translate([0, 0, groove_floor]) cylinder(h = 4, r = groove_ro);
+    translate([0, 0, groove_floor - 1]) cylinder(h = 6, r = groove_ri);
+  }
+  // dish the island top down to island_top
+  translate([0, 0, island_top]) cylinder(h = 3, r = groove_ri);
 }
 
 module spine_block(z0, z1) {
@@ -66,9 +77,10 @@ module base_part() {
   difference() {
     union() {
       rounded_plate();
-      claw_ring();
+      back_wall();
       spine_block(plate_t, spine_top_base);
     }
+    seat_cuts();
     // tenon socket at spine top
     translate([-socket_w/2, (spine_y0+spine_y1)/2 - socket_d/2,
                spine_top_base - socket_depth])
