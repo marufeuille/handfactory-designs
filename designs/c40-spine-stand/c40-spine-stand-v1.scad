@@ -15,16 +15,15 @@ cup_h       = 65;   // catch cup height (nominal)
 plate_w = 106; plate_d = 110; plate_t = 8; plate_r = 6;
 // plate spans y in [-66, +44]; body axis at origin
 
-// body seat (owner's revision): body stands at plate level; its bottom
-// rim (protrudes 2mm) drops into a shallow groove in the plate, caught
-// by an inner island (~2mm) and a low back wall (~10mm)
-groove_ro = 32;     // groove outer wall Ø64
-groove_ri = 26;     // groove inner Ø52 (island edge = inner catch)
-groove_floor = 5;   // 3mm below plate top (plate top z=8)
-island_top = 6.8;   // island stands ~1.8mm above groove floor
-wall_ro = 40;       // back wall outer Ø80, inner face = groove outer wall
-wall_top = 18;      // 10mm above plate top
+// body seat (owner's revision 2): NO groove. Body stands on the flat
+// plate; two low walls on the plate catch its bottom rim (protrudes
+// 2mm): a back wall 10mm tall and an inner island 2mm tall.
+wall_ri = 32;       // back wall inner face Ø64
+wall_ro = 40;       // back wall outer Ø80
+wall_top = 18;      // 10mm above plate top (z=8)
 wall_arc = 130;     // back wall arc (deg, centred on -y)
+island_r = 26;      // inner island Ø52
+island_top = 10;    // 2mm above plate top
 
 // spine
 spine_w = 20; spine_d = 22;
@@ -54,18 +53,13 @@ module back_wall() {
   // low arc wall at the back only; front and sides stay open
   rotate([0, 0, 270 - wall_arc/2])
     rotate_extrude(angle = wall_arc)
-      polygon([[groove_ro, 8], [wall_ro, 8], [wall_ro, wall_top],
-               [groove_ro, wall_top]]);
+      polygon([[wall_ri, 8], [wall_ro, 8], [wall_ro, wall_top],
+               [wall_ri, wall_top]]);
 }
 
-module seat_cuts() {
-  // annular groove in the plate top
-  difference() {
-    translate([0, 0, groove_floor]) cylinder(h = 4, r = groove_ro);
-    translate([0, 0, groove_floor - 1]) cylinder(h = 6, r = groove_ri);
-  }
-  // dish the island top down to island_top
-  translate([0, 0, island_top]) cylinder(h = 3, r = groove_ri);
+module island() {
+  // inner catch: 2mm island the body's rim catches from inside
+  translate([0, 0, 8]) cylinder(h = island_top - 8, r = island_r);
 }
 
 module spine_block(z0, z1) {
@@ -78,9 +72,9 @@ module base_part() {
     union() {
       rounded_plate();
       back_wall();
+      island();
       spine_block(plate_t, spine_top_base);
     }
-    seat_cuts();
     // tenon socket at spine top
     translate([-socket_w/2, (spine_y0+spine_y1)/2 - socket_d/2,
                spine_top_base - socket_depth])
