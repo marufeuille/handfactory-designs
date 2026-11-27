@@ -15,11 +15,14 @@ cup_h       = 65;   // catch cup height (nominal)
 plate_w = 106; plate_d = 110; plate_t = 8; plate_r = 6;
 // plate spans y in [-66, +44]; body axis at origin
 
-// body claw ring (front-open partial annulus shelf)
+// body claw ring (front-open): annular groove catches the body's
+// bottom rim (rim protrudes 2mm per owner's photo) from both sides
 claw_ro = 40;       // outer Ø80
-claw_ri = 26;       // inner Ø52 (through, grounds fall to plate)
-claw_z0 = 8;  claw_z1 = 16;   // ring top = body seat height
 claw_open = 120;    // front opening angle (deg, centred on +y)
+groove_ro = 32;     // groove outer wall Ø64
+groove_floor = 16;  // groove depth 3mm below seat top (19)
+post_r = 26;        // inner post Ø52, top 2mm above groove floor (catch only)
+well_r = 20;        // centre well Ø40 (grounds fall to plate)
 
 // spine
 spine_w = 20; spine_d = 22;
@@ -46,11 +49,12 @@ module rounded_plate() {
 }
 
 module claw_ring() {
-  // partial annulus: spans 240 deg, opening centred on +y (front)
+  // partial annulus with groove profile: spans 240 deg, opening at front (+y)
   rotate([0, 0, 90 + claw_open/2])
     rotate_extrude(angle = 360 - claw_open)
-      polygon([[claw_ri, claw_z0], [claw_ro, claw_z0],
-               [claw_ro, claw_z1], [claw_ri, claw_z1]]);
+      polygon([[well_r, 8], [claw_ro, 8], [claw_ro, 19],
+               [groove_ro, 19], [groove_ro, groove_floor],
+               [post_r, groove_floor], [post_r, 18], [well_r, 18]]);
 }
 
 module spine_block(z0, z1) {
